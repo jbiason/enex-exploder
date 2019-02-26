@@ -2,6 +2,11 @@ use std::env;
 use xml::{Event, Parser};
 use std::fs::File;
 use std::io::prelude::*;
+use slug::slugify;
+
+enum State {
+    Title
+}
 
 fn main() {
     let args:Vec<_> = env::args().collect();
@@ -24,13 +29,34 @@ fn main() {
     let mut parser = Parser::new();
     parser.feed_str(&contents);
     
-    for event in parser {
-        match event.unwrap() {
-            Event::ElementStart(tag) => println!("Start: {}", tag.name),
-            Event::ElementEnd(tag) => println!("End: {}", tag.name),
-            Event::Characters(data) => println!("Data: {}", data),
-            Event::CDATA(data) => println!("CDATA: {}", data),
-            _ => ()
+    parser.fold(None, {|state:Option<State>, element| {
+        match element.unwrap() {
+            Event::ElementStart(tag) => {
+                // println!("Start: {}", tag.name);
+                match tag.name.as_ref() {
+                    "title" => Some(State::Title),
+                    _ => None
+                }
+            },
+            Event::ElementEnd(tag) => {
+                // println!("End: {}", tag.name);
+                None    // ending a tag always remove the state
+            },
+            Event::Characters(data) => {
+                // println!("Data: {}", data);
+                match state {
+                    Some(State::Title) => {
+                        println!("TITLE: {}", slugify(data));
+                        None
+                    },
+                    _ => state
+                }
+            },
+            Event::CDATA(data) => {
+                // println!("CDATA: {}", data);
+                state
+            },
+            _ => state
         }
-    }
+    }});
 }

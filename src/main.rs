@@ -32,14 +32,12 @@ fn main() {
     parser.fold(None, {|state:Option<State>, element| {
         match element.unwrap() {
             Event::ElementStart(tag) => {
-                // println!("Start: {}", tag.name);
                 match tag.name.as_ref() {
                     "title" => Some(State::Title),
                     _ => None
                 }
             },
-            Event::ElementEnd(tag) => {
-                // println!("End: {}", tag.name);
+            Event::ElementEnd(_) => {
                 None    // ending a tag always remove the state
             },
             Event::Characters(data) => {
@@ -52,8 +50,7 @@ fn main() {
                     _ => state
                 }
             },
-            Event::CDATA(data) => {
-                // println!("CDATA: {}", data);
+            Event::CDATA(_) => {
                 state
             },
             _ => state

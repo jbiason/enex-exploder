@@ -8,29 +8,31 @@ enum CurrentTag {
     Title
 }
 
+#[derive(Default)]
 struct State {
     tag: Option<CurrentTag>,
-    title: String
+    title: Option<String>
 }
 
 impl State {
     pub fn new() -> Self {
-        Self { tag: None, title: String::from("") }
+        Self { tag: None, title: None }
     }
 
     pub fn change_title(self, title:&str) -> Self {
-        Self { tag:self.tag,
-               title:title.to_string() }
+        Self { title: Some(title.to_string()),
+               ..Default::default()
+         }
     }
 
     pub fn change_tag(self, tag:CurrentTag) -> Self {
-        Self { tag:Some(tag),
-               title:self.title }
+        Self { tag: Some(tag),
+               ..Default::default() }
     }
 
     pub fn remove_tag(self) -> Self {
-        Self { tag:None,
-               title:self.title }
+        Self { tag: None,
+               ..Default::default() }
     }
 }
 
@@ -60,6 +62,7 @@ fn main() {
             Event::ElementStart(tag) => {
                 match tag.name.as_ref() {
                     "title" => state.change_tag(CurrentTag::Title),
+                    "note" => State::new(),     // the start of a note resets everything
                     _ => state
                 }
             },
@@ -71,7 +74,8 @@ fn main() {
                 match state.tag {
                     Some(CurrentTag::Title) => {
                         println!("TITLE: {}", slugify(&data));
-                        state.change_title(&slugify(data))
+                        let new_state = state.change_title(&slugify(&data));
+                        new_state
                     },
                     _ => state
                 }

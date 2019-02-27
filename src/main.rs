@@ -4,8 +4,34 @@ use std::fs::File;
 use std::io::prelude::*;
 use slug::slugify;
 
-enum State {
+enum CurrentTag {
     Title
+}
+
+struct State {
+    tag: Option<CurrentTag>,
+    title: String
+}
+
+impl State {
+    pub fn new() -> Self {
+        Self { tag: None, title: String::from("") }
+    }
+
+    pub fn change_title(self, title:&str) -> Self {
+        Self { tag:self.tag,
+               title:title.to_string() }
+    }
+
+    pub fn change_tag(self, tag:CurrentTag) -> Self {
+        Self { tag:Some(tag),
+               title:self.title }
+    }
+
+    pub fn remove_tag(self) -> Self {
+        Self { tag:None,
+               title:self.title }
+    }
 }
 
 fn main() {
@@ -29,23 +55,23 @@ fn main() {
     let mut parser = Parser::new();
     parser.feed_str(&contents);
     
-    parser.fold(None, {|state:Option<State>, element| {
+    parser.fold(State::new(), {|state:State, element| {
         match element.unwrap() {
             Event::ElementStart(tag) => {
                 match tag.name.as_ref() {
-                    "title" => Some(State::Title),
-                    _ => None
+                    "title" => state.change_tag(CurrentTag::Title),
+                    _ => state
                 }
             },
             Event::ElementEnd(_) => {
-                None    // ending a tag always remove the state
+                state.remove_tag()
             },
             Event::Characters(data) => {
                 // println!("Data: {}", data);
-                match state {
-                    Some(State::Title) => {
-                        println!("TITLE: {}", slugify(data));
-                        None
+                match state.tag {
+                    Some(CurrentTag::Title) => {
+                        println!("TITLE: {}", slugify(&data));
+                        state.change_title(&slugify(data))
                     },
                     _ => state
                 }

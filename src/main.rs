@@ -8,7 +8,12 @@ use slug::slugify;
 #[derive(Debug)]
 enum CurrentTag {
     Title,
-    Data
+    Data,
+    Content,
+    Resource,
+    ResourceData,
+    ResourceAttributes,
+    ResourceAttributesFilename
 }
 
 #[derive(Debug)]
@@ -44,6 +49,30 @@ impl State {
     }
 }
 
+fn create_note_storage(title: &str) -> String {
+    let slug = slugify(title);
+    println!("TITLE: {}", slug);
+    std::fs::create_dir_all(Path::new("data").join(slug.as_str())).unwrap();
+    slug
+}
+
+fn open_tag(current_state: State, tag: &str) -> State {
+    match tag {
+        "title" => current_state.with_tag(CurrentTag::Title),
+        "data" => current_state.with_tag(CurrentTag::Data),
+        "content" => current_state.with_tag(CurrentTag::Content),
+        "resource" => current_state.with_tag(CurrentTag::Resource),
+        "resource-attributes" => current_state.with_tag(CurrentTag::ResourceAttributes),
+        "file-name" => current_state.with_tag(CurrentTag::ResourceAttributesFilename),
+        "note" => State::new(),
+        _ => current_state
+    }
+}
+
+fn close_tag(current_state: State, _tag: &str) -> State {
+    current_state.remove_tag()
+}
+
 fn main() {
     let args:Vec<_> = env::args().collect();
     if args.len() != 2 {
@@ -69,48 +98,18 @@ fn main() {
         println!("State: {:?}", state);
 
         match element.unwrap() {
-            Event::ElementStart(tag) => {
-                println!("Start tag {}", tag.name);
-
-                match tag.name.as_ref() {
-                    "title" => state.with_tag(CurrentTag::Title),
-                    "data" => state.with_tag(CurrentTag::Data),
-                    "note" => {
-                        println!("Reset");
-                        State::new()     // the start of a note resets everything
-                    },
-                    _ => state
-                }
-            },
-
-            Event::ElementEnd(tag) => {
-                // whatever tag we were following, it is not there anymore.
-                println!("Closing tag {}", tag.name);
-                state.remove_tag()
-            },
-
+            Event::ElementStart(tag) => open_tag(state, tag.name.as_ref()),
+            Event::ElementEnd(tag) => close_tag(state, tag.name.as_ref()),
+            // Event::CDATA(_) => state,
             Event::Characters(data) => {
                 println!("Data");
 
                 match state.tag {
-                    Some(CurrentTag::Title) => {
-                        let slug = slugify(data);
-                        println!("TITLE: {}", slug);
-                        std::fs::create_dir_all(Path::new(slug.as_str())).unwrap();
-                        state.with_title(slug)
-                    },
-
-                    Some(CurrentTag::Data) => {
-                        let title = state.title.as_ref().unwrap().to_string();
-                        let _filename = Path::new(&title);
-
-                        state
-                    },
+                    Some(CurrentTag::Title) => state.with_title(create_note_storage(&data)),
+                    Some(CurrentTag::Data) => state,
+                    Some(CurrentTag::ResourceAttributesFilename) => state.with_filename(data),
                     _ => state
                 }
-            },
-            Event::CDATA(_) => {
-                state
             },
             _ => state
         }

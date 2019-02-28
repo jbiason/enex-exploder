@@ -2,30 +2,37 @@ use std::env;
 use xml::{Event, Parser};
 use std::fs::File;
 use std::io::prelude::*;
+use std::path::Path;
 use slug::slugify;
 
 enum CurrentTag {
-    Title
+    Title,
+    Data
 }
 
 #[derive(Default)]
 struct State {
     tag: Option<CurrentTag>,
-    title: Option<String>
+    title: Option<String>,
+    filename: Option<String>
 }
 
 impl State {
     pub fn new() -> Self {
-        Self { tag: None, title: None }
+        Self { tag: None, title: None, filename: None }
     }
 
-    pub fn change_title(self, title:&str) -> Self {
+    pub fn with_title(self, title:String) -> Self {
         Self { title: Some(title.to_string()),
-               ..Default::default()
-         }
+               ..Default::default() }
     }
 
-    pub fn change_tag(self, tag:CurrentTag) -> Self {
+    pub fn with_filename(self, filename: String) -> Self {
+        Self { filename: Some(filename),
+               ..Default::default() }
+    }
+
+    pub fn with_tag(self, tag:CurrentTag) -> Self {
         Self { tag: Some(tag),
                ..Default::default() }
     }
@@ -61,21 +68,31 @@ fn main() {
         match element.unwrap() {
             Event::ElementStart(tag) => {
                 match tag.name.as_ref() {
-                    "title" => state.change_tag(CurrentTag::Title),
+                    "title" => state.with_tag(CurrentTag::Title),
+                    "data" => state.with_tag(CurrentTag::Data),
                     "note" => State::new(),     // the start of a note resets everything
                     _ => state
                 }
             },
+
             Event::ElementEnd(_) => {
+                // whatever tag we were following, it is not there anymore.
                 state.remove_tag()
             },
+
             Event::Characters(data) => {
-                // println!("Data: {}", data);
                 match state.tag {
                     Some(CurrentTag::Title) => {
-                        println!("TITLE: {}", slugify(&data));
-                        let new_state = state.change_title(&slugify(&data));
-                        new_state
+                        let slug = slugify(data);
+                        println!("TITLE: {}", slug);
+                        std::fs::create_dir_all(Path::new(slug.as_str())).unwrap();
+                        state.with_title(slug)
+                    },
+                    Some(CurrentTag::Data) => {
+                        let title = state.title.unwrap().to_string();
+                        let _filename = Path::new(&title);
+
+                        state
                     },
                     _ => state
                 }

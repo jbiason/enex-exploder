@@ -3,12 +3,12 @@ use xml::{Event, Parser};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use std::vec::Vec;
 use slug::slugify;
 
 #[derive(Debug)]
 enum CurrentTag {
     Title,
-    Data,
     Content,
     Resource,
     ResourceData,
@@ -20,12 +20,13 @@ enum CurrentTag {
 struct State {
     tag: Option<CurrentTag>,
     title: Option<String>,
-    filename: Option<String>
+    filename: Option<String>,
+    data: Vec<u8>
 }
 
 impl State {
     pub fn new() -> Self {
-        Self { tag: None, title: None, filename: None }
+        Self { tag: None, title: None, filename: None, data: Vec::new() }
     }
 
     pub fn with_title(self, title:String) -> Self {
@@ -43,6 +44,11 @@ impl State {
                ..self }
     }
 
+    pub fn with_data(self, data:Vec<u8>) -> Self {
+        Self { data: data,
+               ..self }
+    }
+
     pub fn remove_tag(self) -> Self {
         Self { tag: None,
                ..self }
@@ -51,7 +57,6 @@ impl State {
 
 fn create_note_storage(title: &str) -> String {
     let slug = slugify(title);
-    println!("TITLE: {}", slug);
     std::fs::create_dir_all(Path::new("data").join(slug.as_str())).unwrap();
     slug
 }
@@ -59,7 +64,7 @@ fn create_note_storage(title: &str) -> String {
 fn open_tag(current_state: State, tag: &str) -> State {
     match tag {
         "title" => current_state.with_tag(CurrentTag::Title),
-        "data" => current_state.with_tag(CurrentTag::Data),
+        "data" => current_state.with_tag(CurrentTag::ResourceData),
         "content" => current_state.with_tag(CurrentTag::Content),
         "resource" => current_state.with_tag(CurrentTag::Resource),
         "resource-attributes" => current_state.with_tag(CurrentTag::ResourceAttributes),
@@ -100,13 +105,10 @@ fn main() {
         match element.unwrap() {
             Event::ElementStart(tag) => open_tag(state, tag.name.as_ref()),
             Event::ElementEnd(tag) => close_tag(state, tag.name.as_ref()),
-            // Event::CDATA(_) => state,
             Event::Characters(data) => {
-                println!("Data");
-
                 match state.tag {
                     Some(CurrentTag::Title) => state.with_title(create_note_storage(&data)),
-                    Some(CurrentTag::Data) => state,
+                    Some(CurrentTag::ResourceData) => state.with_data(data.into_bytes()),
                     Some(CurrentTag::ResourceAttributesFilename) => state.with_filename(data),
                     _ => state
                 }

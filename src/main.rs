@@ -5,12 +5,13 @@ use std::io::prelude::*;
 use std::path::Path;
 use slug::slugify;
 
+#[derive(Debug)]
 enum CurrentTag {
     Title,
     Data
 }
 
-#[derive(Default)]
+#[derive(Debug)]
 struct State {
     tag: Option<CurrentTag>,
     title: Option<String>,
@@ -24,22 +25,22 @@ impl State {
 
     pub fn with_title(self, title:String) -> Self {
         Self { title: Some(title.to_string()),
-               ..Default::default() }
+               ..self }
     }
 
     pub fn with_filename(self, filename: String) -> Self {
         Self { filename: Some(filename),
-               ..Default::default() }
+               ..self }
     }
 
     pub fn with_tag(self, tag:CurrentTag) -> Self {
         Self { tag: Some(tag),
-               ..Default::default() }
+               ..self }
     }
 
     pub fn remove_tag(self) -> Self {
         Self { tag: None,
-               ..Default::default() }
+               ..self }
     }
 }
 
@@ -65,22 +66,32 @@ fn main() {
     parser.feed_str(&contents);
     
     parser.fold(State::new(), {|state:State, element| {
+        println!("State: {:?}", state);
+
         match element.unwrap() {
             Event::ElementStart(tag) => {
+                println!("Start tag {}", tag.name);
+
                 match tag.name.as_ref() {
                     "title" => state.with_tag(CurrentTag::Title),
                     "data" => state.with_tag(CurrentTag::Data),
-                    "note" => State::new(),     // the start of a note resets everything
+                    "note" => {
+                        println!("Reset");
+                        State::new()     // the start of a note resets everything
+                    },
                     _ => state
                 }
             },
 
-            Event::ElementEnd(_) => {
+            Event::ElementEnd(tag) => {
                 // whatever tag we were following, it is not there anymore.
+                println!("Closing tag {}", tag.name);
                 state.remove_tag()
             },
 
             Event::Characters(data) => {
+                println!("Data");
+
                 match state.tag {
                     Some(CurrentTag::Title) => {
                         let slug = slugify(data);
@@ -88,8 +99,9 @@ fn main() {
                         std::fs::create_dir_all(Path::new(slug.as_str())).unwrap();
                         state.with_title(slug)
                     },
+
                     Some(CurrentTag::Data) => {
-                        let title = state.title.unwrap().to_string();
+                        let title = state.title.as_ref().unwrap().to_string();
                         let _filename = Path::new(&title);
 
                         state

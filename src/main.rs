@@ -108,7 +108,9 @@ fn main() {
             Event::Characters(data) => {
                 match state.tag {
                     Some(CurrentTag::Title) => state.with_title(create_note_storage(&data)),
-                    Some(CurrentTag::ResourceData) => state.with_data(data.into_bytes()),
+                    Some(CurrentTag::ResourceData) => state.with_data(
+                        data.into_bytes().iter().filter(|&x| *x != 13 && *x != 10).map(|&x| x).collect()
+                    ),
                     Some(CurrentTag::ResourceAttributesFilename) => state.with_filename(data),
                     _ => state
                 }

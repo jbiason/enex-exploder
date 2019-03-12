@@ -74,8 +74,20 @@ fn open_tag(current_state: State, tag: &str) -> State {
     }
 }
 
-fn close_tag(current_state: State, _tag: &str) -> State {
-    current_state.remove_tag()
+fn dump_resource(current_state: State) -> State {
+    let unnamed = String::from("content");
+    Path::new("data")
+        .join(current_state.title.as_ref().unwrap())
+        .join(current_state.filename.as_ref().unwrap_or(&unnamed));
+
+    current_state
+}
+
+fn close_tag(current_state: State, tag: &str) -> State {
+    match tag {
+        "resource" => dump_resource(current_state),
+        _ => current_state
+    }
 }
 
 fn main() {
@@ -109,7 +121,12 @@ fn main() {
                 match state.tag {
                     Some(CurrentTag::Title) => state.with_title(create_note_storage(&data)),
                     Some(CurrentTag::ResourceData) => state.with_data(
-                        data.into_bytes().iter().filter(|&x| *x != 13 && *x != 10).map(|&x| x).collect()
+                        data
+                            .into_bytes()
+                            .iter()
+                            .filter(|&x| *x != 13 && *x != 10)  // remove new lines, it is base 64, after all
+                            .map(|&x| x)
+                            .collect()
                     ),
                     Some(CurrentTag::ResourceAttributesFilename) => state.with_filename(data),
                     _ => state

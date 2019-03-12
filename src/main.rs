@@ -5,6 +5,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::vec::Vec;
 use slug::slugify;
+use base64::decode;
 
 #[derive(Debug)]
 enum CurrentTag {
@@ -49,10 +50,10 @@ impl State {
                ..self }
     }
 
-    pub fn remove_tag(self) -> Self {
-        Self { tag: None,
-               ..self }
-    }
+    // pub fn remove_tag(self) -> Self {
+    //     Self { tag: None,
+    //            ..self }
+    // }
 }
 
 fn create_note_storage(title: &str) -> String {
@@ -76,9 +77,13 @@ fn open_tag(current_state: State, tag: &str) -> State {
 
 fn dump_resource(current_state: State) -> State {
     let unnamed = String::from("content");
-    Path::new("data")
+    let content_storage = Path::new("data")
         .join(current_state.title.as_ref().unwrap())
         .join(current_state.filename.as_ref().unwrap_or(&unnamed));
+    let content = base64::decode(&current_state.data).unwrap();
+
+    let mut target = File::create(content_storage).unwrap();
+    target.write_all(&content).unwrap();
 
     current_state
 }

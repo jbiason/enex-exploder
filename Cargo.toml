@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 RustyXML = "0.1.1"
 slug = "0.1.4"
+base64 = "0.10.1"

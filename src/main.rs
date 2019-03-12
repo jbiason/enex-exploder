@@ -50,10 +50,15 @@ impl State {
                ..self }
     }
 
-    // pub fn remove_tag(self) -> Self {
-    //     Self { tag: None,
-    //            ..self }
-    // }
+    pub fn remove_tag(self) -> Self {
+        Self { tag: None,
+               ..self }
+    }
+
+    pub fn remove_data(self) -> Self {
+        Self { data: Vec::new(),
+               ..self }
+    }
 }
 
 fn create_note_storage(title: &str) -> String {
@@ -75,23 +80,26 @@ fn open_tag(current_state: State, tag: &str) -> State {
     }
 }
 
-fn dump_resource(current_state: State) -> State {
+fn dump_resource(current_state: &State) -> () {
     let unnamed = String::from("content");
     let content_storage = Path::new("data")
         .join(current_state.title.as_ref().unwrap())
         .join(current_state.filename.as_ref().unwrap_or(&unnamed));
     let content = base64::decode(&current_state.data).unwrap();
 
+    println!("Will save {:?}", content_storage);
+
     let mut target = File::create(content_storage).unwrap();
     target.write_all(&content).unwrap();
-
-    current_state
 }
 
 fn close_tag(current_state: State, tag: &str) -> State {
     match tag {
-        "resource" => dump_resource(current_state),
-        _ => current_state
+        "resource" => {
+            dump_resource(&current_state);
+            current_state.remove_data()
+        },
+        _ => current_state.remove_tag()
     }
 }
 

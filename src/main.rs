@@ -141,6 +141,29 @@ fn close_tag(current_state: State, tag: &str) -> State {
     }
 }
 
+fn parse_element(element:Event, state: State) -> State {
+    match element {
+        Event::ElementStart(tag) => open_tag(state, tag.name.as_ref()),
+        Event::ElementEnd(tag) => close_tag(state, tag.name.as_ref()),
+        Event::Characters(data) => {
+            match state.tag {
+                Some(CurrentTag::Title) => state.with_title(create_note_storage(&data)),
+                Some(CurrentTag::ResourceData) => state.with_data(
+                    data.into_bytes()
+                    .iter()
+                    .filter(|&x| *x != 13 && *x != 10) // remove new lines, it is base 64, after all
+                    .map(|&x| x)
+                    .collect(),
+                    ),
+                Some(CurrentTag::Content) => state.with_content(data.into_bytes()),
+                Some(CurrentTag::ResourceAttributesFilename) => state.with_filename(data),
+                _ => state,
+            }
+        }
+        _ => state,
+    }
+}
+
 fn main() {
     let args: Vec<_> = env::args().collect();
     if args.len() != 2 {
@@ -162,30 +185,12 @@ fn main() {
     let mut parser = Parser::new();
     parser.feed_str(&contents);
 
-    parser.fold(State::new(), {
-        |state: State, element| {
-            println!("State: {:?}", state);
+    parser.fold(State::new(), { |state: State, parsing_result| {
+        println!("State: {:?}", state);
 
-            match element.unwrap() {
-                Event::ElementStart(tag) => open_tag(state, tag.name.as_ref()),
-                Event::ElementEnd(tag) => close_tag(state, tag.name.as_ref()),
-                Event::Characters(data) => {
-                    match state.tag {
-                        Some(CurrentTag::Title) => state.with_title(create_note_storage(&data)),
-                        Some(CurrentTag::ResourceData) => state.with_data(
-                            data.into_bytes()
-                                .iter()
-                                .filter(|&x| *x != 13 && *x != 10) // remove new lines, it is base 64, after all
-                                .map(|&x| x)
-                                .collect(),
-                        ),
-                        Some(CurrentTag::Content) => state.with_content(data.into_bytes()),
-                        Some(CurrentTag::ResourceAttributesFilename) => state.with_filename(data),
-                        _ => state,
-                    }
-                }
-                _ => state,
-            }
+        match parsing_result {
+            Ok(element) => parse_element(element, state),
+            Err(_) => state,
         }
-    });
+    }});
 }

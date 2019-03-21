@@ -122,7 +122,7 @@ fn dump_resource(current_state: &State) -> () {
 fn dump_note_contents(current_state: &State) -> () {
     let filename = Path::new("data")
         .join(current_state.title.as_ref().unwrap())
-        .join("content.md");
+        .join("content.html");
     let mut target = File::create(filename).unwrap();
     target.write_all(&current_state.content).unwrap();
 }
@@ -159,6 +159,11 @@ fn parse_element(element:Event, state: State) -> State {
                 Some(CurrentTag::ResourceAttributesFilename) => state.with_filename(data),
                 _ => state,
             }
+        }
+        Event::CDATA(data) => {
+            let new_state = state.with_content(data.into_bytes());
+            dump_note_contents(&new_state);
+            new_state
         }
         _ => state,
     }
